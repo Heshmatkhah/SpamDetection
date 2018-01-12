@@ -18,7 +18,7 @@ This parameters are used in Grid Search Cross Validation to specify each Pipelin
 |----------------------------|---------------------------------------------------|--------------------------|-------------------------------|-------------------------|
 | *_unoptimized-model.pkl    | First try of algorithms. No optimization applied. | `{}`                     | `{}`                          | `{}`                    |
 | *_optimized-model.pkl      | Optimized models.                                 |  see below               |     see below                 | see below               |
-| *_optimized-model-char.pkl | Optimized models. whit 'char' bow analyzer.       |  see below               | see below                     | see below               |
+| *_optimized-model-char.pkl | Optimized models. with 'char' bow analyzer.       |  see below               | see below                     | see below               |
 | *_model.pkl                | Composition of models                             | nb_optimized-model.pkl   | svm_optimized-model-char.pkl  | knn_optimized-model.pkl |
 
 ## Naive Bayes Parameters
@@ -136,7 +136,7 @@ Text you want to test.
 
 	------------ ------------ ------------
 
-Support Vector Machine:	 ham
+Support Vector Machine:	 	ham
 Naive Bayes:			ham
 K Nearest Neighbor:		ham
 
