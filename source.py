@@ -22,6 +22,7 @@ FILEPATH = os.path.dirname(os.path.abspath(__file__))
 
 # Reading the Data Set
 DATASET = pandas.read_csv(FILEPATH + '/DataSet/SMSSpamCollection', sep='\t', quoting=csv.QUOTE_NONE, names=["label", "message"])
+MODELFILEPOSTFIX = '_model'
 
 
 # ************************************* #
@@ -173,7 +174,7 @@ def optimizeParameters(data_set, classifier, parameters, title=None):
 
 	# create pipeline
 	pipeline = Pipeline([
-		('bow', CountVectorizer(analyzer=splitToLemmas_NoStopWord)),  # strings to token integer counts
+		('bow', CountVectorizer()),  # strings to token integer counts
 		('tfidf', TfidfTransformer()),  # integer counts to weighted TF-IDF (Term Frequency - Inverse Document Frequency) scores
 		('classifier', classifier)  # train on TF-IDF vectors with given Classifier
 	])
@@ -203,9 +204,9 @@ def predict(message):
 	:return: (svm result, nb result, knn result)
 	:rtype:tuple
 	'''
-	nb_detector = cPickle.load(open(FILEPATH + '/models/nb_model.pkl', mode='rb'))
-	svm_detector = cPickle.load(open(FILEPATH + '/models/svm_model.pkl', mode='rb'))
-	knn_detector = cPickle.load(open(FILEPATH + '/models/knn_model.pkl', mode='rb'))
+	nb_detector = cPickle.load(open(FILEPATH + '/models/nb' + MODELFILEPOSTFIX + '.pkl', mode='rb'))
+	svm_detector = cPickle.load(open(FILEPATH + '/models/svm' + MODELFILEPOSTFIX + '.pkl', mode='rb'))
+	knn_detector = cPickle.load(open(FILEPATH + '/models/knn' + MODELFILEPOSTFIX + '.pkl', mode='rb'))
 
 	nb_predict = nb_detector.predict([message])[0]
 	svm_predict = svm_detector.predict([message])[0]
@@ -233,32 +234,44 @@ def showDeatils(data_set):
 	plots = data_set.hist(column='length', by='label', bins=50)  # bins='auto' , makes plot in more detail
 	plots[0].get_figure().show()
 
-	nb_detector = cPickle.load(open(FILEPATH + '/models/nb_model.pkl', mode='rb'))
+	nb_detector = cPickle.load(open(FILEPATH + '/models/nb' + MODELFILEPOSTFIX + '.pkl', mode='rb'))
 	showModelDetail(nb_detector, data_set['message'], data_set['label'], 'Naive Bayes Classifier')
 
-	svm_detector = cPickle.load(open(FILEPATH + '/models/svm_model.pkl', mode='rb'))
+	svm_detector = cPickle.load(open(FILEPATH + '/models/svm' + MODELFILEPOSTFIX + '.pkl', mode='rb'))
 	showModelDetail(svm_detector, data_set['message'], data_set['label'], 'Support Vector Machine Classifier')
 
-	knn_detector = cPickle.load(open(FILEPATH + '/models/knn_model.pkl', mode='rb'))
+	knn_detector = cPickle.load(open(FILEPATH + '/models/knn' + MODELFILEPOSTFIX + '.pkl', mode='rb'))
 	showModelDetail(knn_detector, data_set['message'], data_set['label'], 'K Nearest Neighbor Classifier')
 
 	data_set['nb'] = data_set['message'].map(lambda text: nb_detector.predict([text])[0])
 	data_set['svm'] = data_set['message'].map(lambda text: svm_detector.predict([text])[0])
 	data_set['knn'] = data_set['message'].map(lambda text: knn_detector.predict([text])[0])
 
-	print("\t----------------\t Naive Bayes fails on this messages \t----------------\n")
+	print("\n\t----------------\t Naive Bayes fails on this messages \t----------------\n")
 	nb_fp = data_set[['label', 'message']][data_set.nb != data_set.label]
 	print(nb_fp)
 
-	print("\t----------------\t SVM fails on this messages \t----------------\n")
+	print("\n\t----------------\t SVM fails on this messages \t----------------\n")
 	svm_fp = data_set[['label', 'message']][data_set.svm != data_set.label]
 	print(svm_fp)
 
-	print("\t----------------\t K-NN fails on this messages \t----------------\n")
+	print("\n\t----------------\t K-NN fails on this messages \t----------------\n")
 	knn_fp = data_set[['label', 'message']][data_set.knn != data_set.label]
 	print(knn_fp)
 
-	print("\t----------------\t Everyone fails on this messages \t----------------\n")
+	print("\n\t----------------\t NB & SVM \t----------------\n")
+	fp = data_set[['label', 'message']][(data_set.nb != data_set.label) & (data_set.svm != data_set.label)]
+	print(fp)
+
+	print("\n\t----------------\t NB & KNN \t----------------\n")
+	fp = data_set[['label', 'message']][(data_set.nb != data_set.label) & (data_set.knn != data_set.label)]
+	print(fp)
+
+	print("\n\t----------------\t SVM & KNN \t----------------\n")
+	fp = data_set[['label', 'message']][(data_set.svm != data_set.label) & (data_set.knn != data_set.label)]
+	print(fp)
+
+	print("\n\t----------------\t Everyone fails on this messages \t----------------\n")
 	fp = data_set[['label', 'message']][(data_set.nb != data_set.label) & (data_set.svm != data_set.label) & (data_set.knn != data_set.label)]
 	print(fp)
 
@@ -277,7 +290,9 @@ def train_K_nearest_neighbor(messages):
 	'''
 	# pipeline parameters to automatically explore and tune
 	params = {
-		'classifier__n_neighbors': numpy.arange(start=1, stop=70),
+		'tfidf__use_idf': (True, False),
+		'bow__analyzer': (splitToLemmas_NoStopWord, splitToLemmas, splitToTokens, 'word'),
+		'classifier__n_neighbors': numpy.arange(start=1, stop=100),
 		'classifier__weights': ['uniform', 'distance']
 	}
 
@@ -290,7 +305,7 @@ def train_K_nearest_neighbor(messages):
 	)
 
 	# save model to file, so we can just use it later
-	saveModelToFile(knn_detector, 'knn_model.pkl')
+	saveModelToFile(knn_detector, 'knn' + MODELFILEPOSTFIX + '.pkl')
 
 
 def train_multinomial_nb(messages):
@@ -302,7 +317,7 @@ def train_multinomial_nb(messages):
 	# pipeline parameters to automatically explore and tune
 	params = {
 		'tfidf__use_idf': (True, False),
-		'bow__analyzer': (splitToLemmas, splitToTokens, splitToLemmas_NoStopWord),
+		'bow__analyzer': (splitToLemmas_NoStopWord, splitToLemmas, splitToTokens, 'word'),
 	}
 
 	# run optimization and cross validation
@@ -314,7 +329,7 @@ def train_multinomial_nb(messages):
 	)
 
 	# save model to file, so we can just use it
-	saveModelToFile(nb_detector, 'nb_model.pkl')
+	saveModelToFile(nb_detector, 'nb' + MODELFILEPOSTFIX + '.pkl')
 
 
 def train_svm(messages):
@@ -324,17 +339,13 @@ def train_svm(messages):
 	:return: None
 	'''
 	# pipeline parameters to automatically explore and tune
-	params = [
-		{
-			'classifier__C': [1, 10, 100, 1000],
-			'classifier__kernel': ['linear']
-		},
-		{
-			'classifier__C': [1, 10, 100, 1000],
-			'classifier__gamma': [0.001, 0.0001],
-			'classifier__kernel': ['rbf']
-		}
-	]
+	params = {
+		'tfidf__use_idf': (True, False),
+		'bow__analyzer': (splitToLemmas_NoStopWord, splitToLemmas, splitToTokens, 'word', 'char'),
+		'classifier__C': [1, 10, 100, 1000],
+		'classifier__gamma': ['auto', 0.001, 0.0001],
+		'classifier__kernel': ['rbf', 'linear'],
+	}
 
 	# run optimization and cross validation
 	svm_detector = optimizeParameters(
@@ -345,20 +356,20 @@ def train_svm(messages):
 	)
 
 	# save model to file, so we can just use it
-	saveModelToFile(svm_detector, 'svm_model.pkl')
+	saveModelToFile(svm_detector, 'svm' + MODELFILEPOSTFIX + '.pkl')
 
 
 def main(args):
 	# check if models exist, if not run training
-	if (os.path.isfile(FILEPATH + '/models/nb_model.pkl') == False):
+	if (os.path.isfile(FILEPATH + '/models/nb' + MODELFILEPOSTFIX + '.pkl') == False):
 		print("Creating Naive Bayes Model .....")
 		train_multinomial_nb(DATASET)
 
-	if (os.path.isfile(FILEPATH + '/models/svm_model.pkl') == False):
+	if (os.path.isfile(FILEPATH + '/models/svm' + MODELFILEPOSTFIX + '.pkl') == False):
 		print("Creating Support Vector Machine Model .....")
 		train_svm(DATASET)
 
-	if (os.path.isfile(FILEPATH + '/models/knn_model.pkl') == False):
+	if (os.path.isfile(FILEPATH + '/models/knn' + MODELFILEPOSTFIX + '.pkl') == False):
 		print("Creating K Nearest Neighbor Model .....")
 		train_K_nearest_neighbor(DATASET)
 
@@ -366,7 +377,7 @@ def main(args):
 		showDeatils(DATASET)
 
 	if args.message != "" and args.message is not None:
-		print("\n\t============ Final Result ============\n")
+		print("\n\n\t============ Final Result ============\n")
 		print("Message:\n")
 		print(args.message)
 		print("\n\t------------ ------------ ------------\n")
@@ -390,5 +401,16 @@ if __name__ == "__main__":
 		action="store_true",
 		help="Show models detail."
 	)
+	parser.add_argument(
+		"-p",
+		"--postfix",
+		type=str,
+		default=MODELFILEPOSTFIX,
+		help='Model file postfix, what will be after "algorithm name" and before ".pkl". please note the under lines.(example: -p "_optimized-model-char")'
+	)
 	args = parser.parse_args()
+
+	if args.postfix is not None and args.postfix != "" and args.postfix != MODELFILEPOSTFIX:
+		MODELFILEPOSTFIX = args.postfix
+
 	main(args)
